@@ -1,11 +1,16 @@
 const DATA_URL = "https://jsonplaceholder.typicode.com/posts";
+const MAX_POSTS = 100;
+
 const buttonNext = document.querySelector('.button_next');
 const buttonPrev = document.querySelector('.button_prev');
 const postsSlider = document.querySelector('.posts__slider');
 
-async function fetchData(dataUrl, limit = 100, start = 0) {
-    const data = await fetch(`${dataUrl}?_limit=${limit}&_start=${start}`);
-    return await data.json();
+class ApiModel {
+    static async fetchPosts(url, limit = 10, start = 0) {
+        const res = await fetch(`${url}?_limit=${limit}&_start=${start}`);
+        if (!res.ok) throw new Error(`Fetch error: ${res.status}`);
+        return res.json();
+    }
 }
 
 class PostCard {
@@ -41,9 +46,7 @@ class PostCard {
     }
 }
 
-async function fetchCards(url, limit = 100, start = 0) {
-    const posts = await fetchData(url, limit, start);
-
+async function createAndAppendCards(posts) {
     const fragment = document.createDocumentFragment();
     for (const post of posts) {
         fragment.appendChild(new PostCard(post.userId, post.id, post.title, post.body).element);
@@ -52,14 +55,8 @@ async function fetchCards(url, limit = 100, start = 0) {
     return posts;
 }
 
-let totalFetched = 0;
+let totalAppended = 0;
 let current;
-
-fetchCards(DATA_URL, 10, 0).then(
-    (posts) => {totalFetched = posts.length; current = totalFetched / 2;}
-);
-
-let offset = 0;
 
 async function getCardWidth() {
     const GAP_SIZE = parseFloat(getComputedStyle(postsSlider).gap) || 0;
@@ -68,34 +65,48 @@ async function getCardWidth() {
 }
 
 let isLoading = false;
+let offset = 0;
 
-buttonNext.addEventListener('click', async () => {
+async function handleNext(maxPostsLength = 100) {
     if (isLoading) return;
 
     const cardWidth = await getCardWidth();
 
-    if (offset < cardWidth * 95) {
+    if (offset < cardWidth * (maxPostsLength - 5)) {
         offset += cardWidth;
         current++;
         postsSlider.style.transform = `translateX(${-offset}px)`;
     }
 
-    if (current >= totalFetched - 2 && totalFetched < 100) {
+    if (current >= totalAppended - 2 && totalAppended < 100) {
         isLoading = true;
         buttonNext.disabled = true;
 
-        const fetchedBlock = await fetchCards(DATA_URL, 10, totalFetched);
-        totalFetched += fetchedBlock.length;
+        const posts = await ApiModel.fetchPosts(DATA_URL, 10, totalAppended);
+        const cards = await createAndAppendCards(posts);
+        totalAppended += cards.length;
 
         isLoading = false;
         buttonNext.disabled = false;
     }
-});
+}
 
-buttonPrev.addEventListener('click', () => {
-    const cardWidth = getCardWidth();
+async function handlePrev() {
+    const cardWidth = await getCardWidth();
 
     offset = Math.max(0, offset - cardWidth);
     current = Math.max(0, current - 1);
     postsSlider.style.transform = `translateX(${-offset}px)`;
-});
+}
+
+async function init() {
+    const posts = await ApiModel.fetchPosts(DATA_URL, 10, totalAppended);
+    createAndAppendCards(posts).then(
+        (posts) => {totalAppended = posts.length; current = totalAppended / 2;}
+    )
+
+    buttonNext.addEventListener('click', () => handleNext(MAX_POSTS));
+    buttonPrev.addEventListener('click', handlePrev);
+}
+
+init().catch(console.error);
