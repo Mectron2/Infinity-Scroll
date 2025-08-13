@@ -61,27 +61,39 @@ fetchCards(DATA_URL, 10, 0).then(
 
 let offset = 0;
 
-buttonNext.addEventListener('click', async () => {
+async function getCardWidth() {
     const GAP_SIZE = parseFloat(getComputedStyle(postsSlider).gap) || 0;
     const cardRect = document.querySelector('.posts__card').getBoundingClientRect();
-    const cardWidth = cardRect.width + GAP_SIZE;
+    return cardRect.width + GAP_SIZE;
+}
 
-    if (offset < cardWidth * 96) {
+let isLoading = false;
+
+buttonNext.addEventListener('click', async () => {
+    if (isLoading) return;
+
+    const cardWidth = await getCardWidth();
+
+    if (offset < cardWidth * 95) {
         offset += cardWidth;
         current++;
         postsSlider.style.transform = `translateX(${-offset}px)`;
     }
 
     if (current >= totalFetched - 2 && totalFetched < 100) {
+        isLoading = true;
+        buttonNext.disabled = true;
+
         const fetchedBlock = await fetchCards(DATA_URL, 10, totalFetched);
         totalFetched += fetchedBlock.length;
+
+        isLoading = false;
+        buttonNext.disabled = false;
     }
 });
 
 buttonPrev.addEventListener('click', () => {
-    const GAP_SIZE = parseFloat(getComputedStyle(postsSlider).gap) || 0;
-    const cardRect = document.querySelector('.posts__card').getBoundingClientRect();
-    const cardWidth = cardRect.width + GAP_SIZE;
+    const cardWidth = getCardWidth();
 
     offset = Math.max(0, offset - cardWidth);
     current = Math.max(0, current - 1);
