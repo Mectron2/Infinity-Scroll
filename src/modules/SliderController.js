@@ -15,8 +15,6 @@ export default class SliderController {
         }
 
         if (this.model.shouldLoadMore()) {
-            this.view.setButtonState(this.view.elements.buttonNext, true);
-
             try {
                 const newPosts = await this.model.loadPosts();
                 if (newPosts.length > 0) {
@@ -24,8 +22,6 @@ export default class SliderController {
                 }
             } catch (error) {
                 console.error("Error loading posts:", error);
-            } finally {
-                this.view.setButtonState(this.view.elements.buttonNext, false);
             }
         }
     }
