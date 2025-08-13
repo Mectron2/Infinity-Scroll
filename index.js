@@ -107,16 +107,6 @@ class PostCard {
         const containerElement = document.createElement('article');
         containerElement.classList.add("posts__card");
 
-        const userElement = document.createElement('p');
-        userElement.classList.add("posts__card-user");
-        userElement.textContent = `User id: ${userId}`;
-        containerElement.appendChild(userElement);
-
-        const idElement = document.createElement('p');
-        idElement.classList.add('posts__card-post-id');
-        idElement.textContent = `Post id: ${id}`;
-        containerElement.appendChild(idElement);
-
         const titleElement = document.createElement('h3');
         titleElement.classList.add("posts__card-title");
         titleElement.textContent = title;
@@ -126,6 +116,16 @@ class PostCard {
         contentElement.classList.add('posts__card-content');
         contentElement.textContent = content;
         containerElement.appendChild(contentElement);
+
+        const userElement = document.createElement('p');
+        userElement.classList.add("posts__card-user");
+        userElement.textContent = `User id: ${userId}`;
+        containerElement.appendChild(userElement);
+
+        const idElement = document.createElement('p');
+        idElement.classList.add('posts__card-post-id');
+        idElement.textContent = `Post id: ${id}`;
+        containerElement.appendChild(idElement);
 
         return containerElement;
     }
@@ -235,4 +235,4 @@ const sliderElements = {
 };
 
 const sliderController = new SliderController(sliderElements);
-sliderController.init();
+sliderController.init().finally(() => console.debug("Slider initialized successfully."));
