@@ -1,6 +1,7 @@
 const DATA_URL = "https://jsonplaceholder.typicode.com/posts";
 const MAX_POSTS = 100;
 const VISIBLE_POSTS = 5;
+const POSTS_LIMIT = 10;
 
 const buttonNext = document.querySelector('.button_next');
 const buttonPrev = document.querySelector('.button_prev');
@@ -52,8 +53,7 @@ async function createAndAppendCards(posts) {
     for (const post of posts) {
         fragment.appendChild(new PostCard(post.userId, post.id, post.title, post.body).element);
     }
-    document.querySelector('.posts__slider').appendChild(fragment);
-    return posts;
+    postsSlider.appendChild(fragment);
 }
 
 async function getCardWidth() {
@@ -67,12 +67,12 @@ let current;
 let isLoading = false;
 let offset = 0;
 
-async function handleNext(maxPostsLength = 100) {
+async function handleNext(maxPostsLength) {
     if (isLoading) return;
 
     const cardWidth = await getCardWidth();
 
-    if (offset < cardWidth * (maxPostsLength - 5)) {
+    if (offset < cardWidth * (maxPostsLength - VISIBLE_POSTS)) {
         offset += cardWidth;
         current++;
         postsSlider.style.transform = `translateX(${-offset}px)`;
@@ -82,9 +82,9 @@ async function handleNext(maxPostsLength = 100) {
         isLoading = true;
         buttonNext.disabled = true;
 
-        const posts = await ApiModel.fetchPosts(DATA_URL, 10, totalAppended);
-        const cards = await createAndAppendCards(posts);
-        totalAppended += cards.length;
+        const posts = await ApiModel.fetchPosts(DATA_URL, POSTS_LIMIT, totalAppended);
+        await createAndAppendCards(posts);
+        totalAppended += posts.length;
 
         isLoading = false;
         buttonNext.disabled = false;
@@ -106,12 +106,9 @@ async function handleResize() {
 }
 
 async function init() {
-    const posts = await ApiModel.fetchPosts(DATA_URL, 10, totalAppended);
-    createAndAppendCards(posts).then(
-        (posts) => {
-            totalAppended = posts.length; current = VISIBLE_POSTS;
-        }
-    )
+    const posts = await ApiModel.fetchPosts(DATA_URL, POSTS_LIMIT, totalAppended);
+    await createAndAppendCards(posts);
+    totalAppended = posts.length; current = VISIBLE_POSTS;
 
     buttonNext.addEventListener('click', () => handleNext(MAX_POSTS));
     buttonPrev.addEventListener('click', handlePrev);
