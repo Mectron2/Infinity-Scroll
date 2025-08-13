@@ -2,6 +2,7 @@ const DATA_URL = "https://jsonplaceholder.typicode.com/posts";
 const MAX_POSTS = 100;
 const VISIBLE_POSTS = 5;
 const POSTS_LIMIT = 10;
+const THRESHOLD = 2;
 
 class ApiModel {
     static async fetchPosts(url, limit = 10, start = 0) {
@@ -61,7 +62,7 @@ class SliderModel {
     }
 
     shouldLoadMore() {
-        return this.currentIndex >= this.totalAppended - 2 &&
+        return this.currentIndex >= this.totalAppended - THRESHOLD &&
             this.totalAppended < MAX_POSTS &&
             !this.isLoading;
     }
@@ -117,15 +118,19 @@ class PostCard {
         contentElement.textContent = content;
         containerElement.appendChild(contentElement);
 
+        const infoElement = document.createElement('div');
+        infoElement.classList.add('posts__card-info');
+        containerElement.appendChild(infoElement);
+
         const userElement = document.createElement('p');
         userElement.classList.add("posts__card-user");
         userElement.textContent = `User id: ${userId}`;
-        containerElement.appendChild(userElement);
+        infoElement.appendChild(userElement);
 
         const idElement = document.createElement('p');
         idElement.classList.add('posts__card-post-id');
         idElement.textContent = `Post id: ${id}`;
-        containerElement.appendChild(idElement);
+        infoElement.appendChild(idElement);
 
         return containerElement;
     }
