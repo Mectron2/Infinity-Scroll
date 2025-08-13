@@ -3,12 +3,6 @@ const MAX_POSTS = 100;
 const VISIBLE_POSTS = 5;
 const POSTS_LIMIT = 10;
 
-sliderElements = {
-    buttonNext: document.querySelector('.button_next'),
-    buttonPrev: document.querySelector('.button_prev'),
-    postsSlider: document.querySelector('.posts__slider'),
-}
-
 class ApiModel {
     static async fetchPosts(url, limit = 10, start = 0) {
         const res = await fetch(`${url}?_limit=${limit}&_start=${start}`);
@@ -27,6 +21,80 @@ class Post {
 
     static fromJson(json) {
         return new Post(json.userId, json.id, json.title, json.body);
+    }
+}
+
+class SliderModel {
+    constructor() {
+        this.posts = [];
+        this.totalAppended = 0;
+        this.currentIndex = VISIBLE_POSTS;
+        this.offset = 0;
+        this.isLoading = false;
+    }
+
+    async loadPosts(limit = POSTS_LIMIT) {
+        if (this.isLoading || this.totalAppended >= MAX_POSTS) {
+            return [];
+        }
+
+        this.isLoading = true;
+        try {
+            const rawPosts = await ApiModel.fetchPosts(DATA_URL, limit, this.totalAppended);
+            const posts = rawPosts.map(postData => Post.fromJson(postData));
+
+            this.posts.push(...posts);
+            this.totalAppended += posts.length;
+
+            return posts;
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    canMoveNext(cardWidth) {
+        return this.offset < cardWidth * (this.posts.length - VISIBLE_POSTS);
+    }
+
+    canMovePrev() {
+        return this.offset > 0;
+    }
+
+    shouldLoadMore() {
+        return this.currentIndex >= this.totalAppended - 2 &&
+            this.totalAppended < MAX_POSTS &&
+            !this.isLoading;
+    }
+
+    moveNext(cardWidth) {
+        if (this.canMoveNext(cardWidth)) {
+            this.offset += cardWidth;
+            this.currentIndex++;
+            return true;
+        }
+        return false;
+    }
+
+    movePrev(cardWidth) {
+        if (this.canMovePrev()) {
+            this.offset = Math.max(0, this.offset - cardWidth);
+            this.currentIndex = Math.max(VISIBLE_POSTS, this.currentIndex - 1);
+            return true;
+        }
+        return false;
+    }
+
+    resetPosition() {
+        this.offset = 0;
+        this.currentIndex = VISIBLE_POSTS;
+    }
+
+    getOffset() {
+        return this.offset;
+    }
+
+    getIsLoading() {
+        return this.isLoading;
     }
 }
 
@@ -63,81 +131,108 @@ class PostCard {
     }
 }
 
-class SliderController {
+class SliderView {
     constructor(sliderElements) {
-        this.sliderElements = sliderElements;
-        this.totalAppended = 0;
-        this.current = VISIBLE_POSTS;
-        this.isLoading = false;
-        this.offset = 0;
+        this.elements = sliderElements;
     }
 
-    async createAndAppendCards(posts) {
+    appendCards(posts) {
         const fragment = document.createDocumentFragment();
         for (const post of posts) {
-            fragment.appendChild(new PostCard(Post.fromJson(post)).element);
+            fragment.appendChild(new PostCard(post).element);
         }
-        this.sliderElements.postsSlider.appendChild(fragment);
+        this.elements.postsSlider.appendChild(fragment);
     }
 
     getCardWidth() {
-        const GAP_SIZE = parseFloat(getComputedStyle(this.sliderElements.postsSlider).gap) || 0;
-        const cardRect = document.querySelector('.posts__card').getBoundingClientRect();
-        return cardRect.width + GAP_SIZE;
+        const GAP_SIZE = parseFloat(getComputedStyle(this.elements.postsSlider).gap) || 0;
+        const cardRect = document.querySelector('.posts__card')?.getBoundingClientRect();
+        return cardRect ? cardRect.width + GAP_SIZE : 0;
     }
 
-    async handleNext(maxPostsLength) {
-        if (this.isLoading) return;
+    updateSliderPosition(offset) {
+        this.elements.postsSlider.style.transform = `translateX(${-offset}px)`;
+    }
 
-        const cardWidth = this.getCardWidth();
+    setButtonState(button, disabled) {
+        button.disabled = disabled;
+    }
 
-        if (this.offset < cardWidth * (maxPostsLength - VISIBLE_POSTS)) {
-            this.offset += cardWidth;
-            this.current++;
-            this.sliderElements.postsSlider.style.transform = `translateX(${-(this.offset)}px)`;
+    setEventListeners(onNext, onPrev, onResize) {
+        this.elements.buttonNext.addEventListener('click', onNext);
+        this.elements.buttonPrev.addEventListener('click', onPrev);
+        window.addEventListener('resize', onResize);
+    }
+}
+
+class SliderController {
+    constructor(sliderElements) {
+        this.model = new SliderModel();
+        this.view = new SliderView(sliderElements);
+    }
+
+    async handleNext() {
+        if (this.model.getIsLoading()) return;
+
+        const cardWidth = this.view.getCardWidth();
+
+        const moved = this.model.moveNext(cardWidth);
+        if (moved) {
+            this.view.updateSliderPosition(this.model.getOffset());
         }
 
-        if (this.current >= this.totalAppended - 2 && this.totalAppended < 100) {
-            this.isLoading = true;
-            this.sliderElements.buttonNext.disabled = true;
+        if (this.model.shouldLoadMore()) {
+            this.view.setButtonState(this.view.elements.buttonNext, true);
 
-            const posts = await ApiModel.fetchPosts(DATA_URL, POSTS_LIMIT, this.totalAppended);
-            await this.createAndAppendCards(posts);
-            this.totalAppended += posts.length;
-
-            this.isLoading = false;
-            this.sliderElements.buttonNext.disabled = false;
+            try {
+                const newPosts = await this.model.loadPosts();
+                if (newPosts.length > 0) {
+                    this.view.appendCards(newPosts);
+                }
+            } catch (error) {
+                console.error("Error loading posts:", error);
+            } finally {
+                this.view.setButtonState(this.view.elements.buttonNext, false);
+            }
         }
     }
 
-    async handlePrev() {
-        const cardWidth = this.getCardWidth();
+    handlePrev() {
+        const cardWidth = this.view.getCardWidth();
 
-        this.offset = Math.max(0, this.offset - cardWidth);
-        this.current = Math.max(0, this.current - 1);
-        this.sliderElements.postsSlider.style.transform = `translateX(${-(this.offset)}px)`;
+        const moved = this.model.movePrev(cardWidth);
+        if (moved) {
+            this.view.updateSliderPosition(this.model.getOffset());
+        }
     }
 
-    async handleResize() {
-        this.offset = 0;
-        this.current = VISIBLE_POSTS;
-        this.sliderElements.postsSlider.style.transform = `translateX(${-(this.offset)}px)`;
+    handleResize() {
+        this.model.resetPosition();
+        this.view.updateSliderPosition(this.model.getOffset());
     }
 
     async init() {
-        const posts = await ApiModel.fetchPosts(DATA_URL, POSTS_LIMIT, this.totalAppended);
-        await this.createAndAppendCards(posts);
-        this.totalAppended = posts.length;
-        this.current = VISIBLE_POSTS;
+        try {
+            const initialPosts = await this.model.loadPosts();
+            this.view.appendCards(initialPosts);
 
-        this.sliderElements.buttonNext.addEventListener('click', () => this.handleNext(MAX_POSTS));
-        this.sliderElements.buttonPrev.addEventListener('click', () => this.handlePrev());
-        window.addEventListener('resize', () => this.handleResize());
+            this.view.setEventListeners(
+                () => this.handleNext(),
+                () => this.handlePrev(),
+                () => this.handleResize()
+            );
+
+        } catch (error) {
+            console.error("Error initializing slider:", error);
+        }
     }
-
 }
 
+const sliderElements = {
+    buttonNext: document.querySelector('.button_next'),
+    buttonPrev: document.querySelector('.button_prev'),
+    postsSlider: document.querySelector('.posts__slider'),
+};
+
 const sliderController = new SliderController(sliderElements);
-sliderController.init().catch(error => {
-    console.error("Error initializing slider:", error);
-});
+sliderController.init();
