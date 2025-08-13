@@ -1,5 +1,6 @@
 const DATA_URL = "https://jsonplaceholder.typicode.com/posts";
 const MAX_POSTS = 100;
+const VISIBLE_POSTS = 5;
 
 const buttonNext = document.querySelector('.button_next');
 const buttonPrev = document.querySelector('.button_prev');
@@ -55,15 +56,14 @@ async function createAndAppendCards(posts) {
     return posts;
 }
 
-let totalAppended = 0;
-let current;
-
 async function getCardWidth() {
     const GAP_SIZE = parseFloat(getComputedStyle(postsSlider).gap) || 0;
     const cardRect = document.querySelector('.posts__card').getBoundingClientRect();
     return cardRect.width + GAP_SIZE;
 }
 
+let totalAppended = 0;
+let current;
 let isLoading = false;
 let offset = 0;
 
@@ -99,14 +99,23 @@ async function handlePrev() {
     postsSlider.style.transform = `translateX(${-offset}px)`;
 }
 
+async function handleResize() {
+    offset = 0;
+    current = VISIBLE_POSTS;
+    postsSlider.style.transform = `translateX(${-offset}px)`;
+}
+
 async function init() {
     const posts = await ApiModel.fetchPosts(DATA_URL, 10, totalAppended);
     createAndAppendCards(posts).then(
-        (posts) => {totalAppended = posts.length; current = totalAppended / 2;}
+        (posts) => {
+            totalAppended = posts.length; current = VISIBLE_POSTS;
+        }
     )
 
     buttonNext.addEventListener('click', () => handleNext(MAX_POSTS));
     buttonPrev.addEventListener('click', handlePrev);
+    window.addEventListener('resize', handleResize);
 }
 
 init().catch(console.error);
