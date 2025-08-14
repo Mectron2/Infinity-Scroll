@@ -4,53 +4,46 @@ export default class SliderController {
         this.view = view;
     }
 
-    async handleNext() {
+    async loadNextBlock() {
         if (this.model.getIsLoading()) return;
 
-        const cardWidth = this.view.getCardWidth();
+        try {
+            this.view.setLoadingState(true);
+            const newPosts = await this.model.loadPosts();
 
-        const moved = this.model.moveNext(cardWidth);
-        if (moved) {
-            this.view.updateSliderPosition(this.model.getOffset());
-        }
-
-        if (this.model.shouldLoadMore()) {
-            try {
-                const newPosts = await this.model.loadPosts();
-                if (newPosts.length > 0) {
-                    this.view.appendCards(newPosts);
-                }
-            } catch (error) {
-                console.error("Error loading posts:", error);
+            if (newPosts.length > 0) {
+                this.view.appendCards(newPosts);
             }
+        } catch (error) {
+            console.error("Error loading posts:", error);
+        } finally {
+            this.view.setLoadingState(false);
         }
     }
 
-    handlePrev() {
-        const cardWidth = this.view.getCardWidth();
+    setScrollEndEventListener() {
+        let scrollTimeout;
 
-        const moved = this.model.movePrev(cardWidth);
-        if (moved) {
-            this.view.updateSliderPosition(this.model.getOffset());
-        }
-    }
+        window.addEventListener('scroll', () => {
+            clearTimeout(scrollTimeout);
 
-    handleResize() {
-        this.model.resetPosition();
-        this.view.updateSliderPosition(this.model.getOffset());
+            scrollTimeout = setTimeout(async () => {
+                const scrollTop = window.scrollY || document.documentElement.scrollTop;
+                const windowHeight = window.innerHeight;
+                const docHeight = document.documentElement.scrollHeight;
+
+                if ((scrollTop + windowHeight >= docHeight - 100) && this.model.canLoadMore()) {
+                    await this.loadNextBlock();
+                }
+            }, 50);
+        });
     }
 
     async init() {
         try {
             const initialPosts = await this.model.loadPosts();
+            this.setScrollEndEventListener();
             this.view.appendCards(initialPosts);
-
-            this.view.setEventListeners(
-                () => this.handleNext(),
-                () => this.handlePrev(),
-                () => this.handleResize()
-            );
-
         } catch (error) {
             console.error("Error initializing slider:", error);
         }

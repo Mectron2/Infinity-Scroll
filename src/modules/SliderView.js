@@ -13,23 +13,18 @@ export default class SliderView {
         this.elements.postsSlider.appendChild(fragment);
     }
 
-    getCardWidth() {
-        const GAP_SIZE = parseFloat(getComputedStyle(this.elements.postsSlider).gap) || 0;
-        const cardRect = document.querySelector('.posts__card')?.getBoundingClientRect();
-        return cardRect ? cardRect.width + GAP_SIZE : 0;
-    }
+    setLoadingState(isLoading) {
+        let loader = this.elements.postsSlider.querySelector('.loader');
 
-    updateSliderPosition(offset) {
-        this.elements.postsSlider.style.transform = `translateX(${-offset}px)`;
-    }
-
-    setButtonState(button, disabled) {
-        button.disabled = disabled;
-    }
-
-    setEventListeners(onNext, onPrev, onResize) {
-        this.elements.buttonNext.addEventListener('click', onNext);
-        this.elements.buttonPrev.addEventListener('click', onPrev);
-        window.addEventListener('resize', onResize);
+        if (isLoading) {
+            if (!loader) {
+                loader = document.createElement('div');
+                loader.className = 'loader';
+                loader.textContent = 'Loading...';
+                this.elements.postsSlider.appendChild(loader);
+            }
+        } else {
+            loader?.remove();
+        }
     }
 }
