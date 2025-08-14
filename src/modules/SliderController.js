@@ -32,7 +32,7 @@ export default class SliderController {
                 const windowHeight = window.innerHeight;
                 const docHeight = document.documentElement.scrollHeight;
 
-                if ((scrollTop + windowHeight >= docHeight - 100) && this.model.canLoadMore()) {
+                if ((scrollTop + windowHeight >= docHeight - 50) && this.model.canLoadMore()) {
                     await this.loadNextBlock();
                 }
             }, 50);

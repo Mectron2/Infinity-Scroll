@@ -17,14 +17,16 @@ export default class SliderView {
         let loader = this.elements.postsSlider.querySelector('.loader');
 
         if (isLoading) {
+            this.elements.postsSlider.style.transform = `translateY(-${70}px)`;
+
             if (!loader) {
                 loader = document.createElement('div');
                 loader.className = 'loader';
-                loader.textContent = 'Loading...';
                 this.elements.postsSlider.appendChild(loader);
             }
         } else {
             loader?.remove();
+            this.elements.postsSlider.style.transform = `translateY(${0}px)`;
         }
     }
 }
